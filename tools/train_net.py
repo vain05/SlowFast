@@ -24,8 +24,10 @@ from slowfast.models.contrastive import (
     contrastive_forward,
     contrastive_parameter_surgery,
 )
-from slowfast.utils.meters import AVAMeter, EpochTimer, TrainMeter, ValMeter
+from slowfast.utils.meters import AVAMeter, EpochTimer, TrainMeter, ValMeter, TestMeter
 from slowfast.utils.multigrid import MultigridSchedule
+
+from tools.test_net import perform_test
 
 logger = logging.get_logger(__name__)
 
@@ -595,29 +597,40 @@ def train(cfg):
     # Create the video train and val loaders.
     train_loader = loader.construct_loader(cfg, "train")
     val_loader = loader.construct_loader(cfg, "val")
+    test_loader = loader.construct_loader(cfg, 'test')
     precise_bn_loader = (
         loader.construct_loader(cfg, "train", is_precise_bn=True)
         if cfg.BN.USE_PRECISE_STATS
         else None
     )
 
-    if (
-        cfg.TASK == "ssl"
-        and cfg.MODEL.MODEL_NAME == "ContrastiveModel"
-        and cfg.CONTRASTIVE.KNN_ON
-    ):
-        if hasattr(model, "module"):
-            model.module.init_knn_labels(train_loader)
-        else:
-            model.init_knn_labels(train_loader)
+    # if (
+    #     cfg.TASK == "ssl"
+    #     and cfg.MODEL.MODEL_NAME == "ContrastiveModel"
+    #     and cfg.CONTRASTIVE.KNN_ON
+    # ):
+    #     if hasattr(model, "module"):
+    #         model.module.init_knn_labels(train_loader)
+    #     else:
+    #         model.init_knn_labels(train_loader)
 
     # Create meters.
     if cfg.DETECTION.ENABLE:
         train_meter = AVAMeter(len(train_loader), cfg, mode="train")
         val_meter = AVAMeter(len(val_loader), cfg, mode="val")
+        test_meter = AVAMeter(len(test_loader), cfg, mode='test')
     else:
         train_meter = TrainMeter(len(train_loader), cfg)
         val_meter = ValMeter(len(val_loader), cfg)
+        test_meter = TestMeter(
+            test_loader.data.num_videos 
+            // (cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS),
+            cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS,
+            cfg.MODEL.NUM_CLASSES,
+            len(test_loader),
+            cfg.DATA.MULTI_LABEL,
+            cfg.DATA.ENSEMBLE_METHOD,
+        )
 
     # set up writer for logging to Tensorboard format.
     if cfg.TENSORBOARD.ENABLE and du.is_master_proc(
@@ -662,7 +675,7 @@ def train(cfg):
                 # Load checkpoint.
                 if cu.has_checkpoint(cfg.OUTPUT_DIR):
                     last_checkpoint = cu.get_last_checkpoint(
-                        cfg.OUTPUT_DIR, task=cfg.TASK
+                        cfg.OUTPUT_DIR, # task=cfg.TASK
                     )
                     assert "{:05d}.pyth".format(cur_epoch) in last_checkpoint
                 else:
@@ -674,8 +687,8 @@ def train(cfg):
 
         # Shuffle the dataset.
         loader.shuffle_dataset(train_loader, cur_epoch)
-        if hasattr(train_loader.dataset, "_set_epoch_num"):
-            train_loader.dataset._set_epoch_num(cur_epoch)
+        # if hasattr(train_loader.dataset, "_set_epoch_num"):
+        #     train_loader.dataset._set_epoch_num(cur_epoch)
         # Train for one epoch.
         epoch_timer.epoch_tic()
         train_epoch(
@@ -690,15 +703,15 @@ def train(cfg):
         )
         epoch_timer.epoch_toc()
         logger.info(
-            f"Epoch {cur_epoch} takes {epoch_timer.last_epoch_time():.2f}s. Epochs "
-            f"from {start_epoch} to {cur_epoch} take "
+            f"Epoch {cur_epoch + 1} takes {epoch_timer.last_epoch_time():.2f}s. Epochs "
+            f"from {start_epoch} to {cur_epoch + 1} take "
             f"{epoch_timer.avg_epoch_time():.2f}s in average and "
             f"{epoch_timer.median_epoch_time():.2f}s in median."
         )
         logger.info(
-            f"For epoch {cur_epoch}, each iteraction takes "
+            f"For epoch {cur_epoch + 1}, each iteraction takes "
             f"{epoch_timer.last_epoch_time()/len(train_loader):.2f}s in average. "
-            f"From epoch {start_epoch} to {cur_epoch}, each iteraction takes "
+            f"From epoch {start_epoch} to {cur_epoch + 1}, each iteraction takes "
             f"{epoch_timer.avg_epoch_time()/len(train_loader):.2f}s in average."
         )
 
@@ -708,7 +721,7 @@ def train(cfg):
                 cur_epoch,
                 None if multigrid is None else multigrid.schedule,
             )
-            or cur_epoch == cfg.SOLVER.MAX_EPOCH - 1
+            # or cur_epoch == cfg.SOLVER.MAX_EPOCH - 1
         )
         is_eval_epoch = (
             misc.is_eval_epoch(
@@ -716,7 +729,7 @@ def train(cfg):
                 cur_epoch,
                 None if multigrid is None else multigrid.schedule,
             )
-            and not cfg.MASK.ENABLE
+            # and not cfg.MASK.ENABLE
         )
 
         # Compute precise BN stats.
@@ -745,17 +758,20 @@ def train(cfg):
             )
         # Evaluate the model on validation set.
         if is_eval_epoch:
-            eval_epoch(
-                val_loader,
-                model,
-                val_meter,
-                cur_epoch,
-                cfg,
-                train_loader,
-                writer,
-            )
-    if start_epoch == cfg.SOLVER.MAX_EPOCH and not cfg.MASK.ENABLE: # final checkpoint load
-        eval_epoch(val_loader, model, val_meter, start_epoch, cfg, train_loader, writer)
+            # eval_epoch(
+            #     val_loader,
+            #     model,
+            #     val_meter,
+            #     cur_epoch,
+            #     cfg,
+            #     train_loader,
+            #     writer,
+            # )
+            logger.info(f"Validate k epoch: {cur_epoch + 1}")
+            # Perform multi-view test on the entire dataset.
+            perform_test(test_loader, model, test_meter, cfg, writer)
+    # if start_epoch == cfg.SOLVER.MAX_EPOCH and not cfg.MASK.ENABLE: # final checkpoint load
+    #     eval_epoch(val_loader, model, val_meter, start_epoch, cfg, train_loader, writer)
     if writer is not None:
         writer.close()
     result_string = (
