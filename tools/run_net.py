@@ -24,7 +24,7 @@ def main():
     for view in ['Dashboard', 'Rear_vew', 'Right_side_view']:
         for group_id in range(5):
             cfg.view = view
-            cfg.group = 'group_' + group_id
+            cfg.group = 'group_' + str(group_id)
             cfg.OUTPUT_DIR = f'checkpoint_{cfg.view}_{cfg.group}'
 
             # Perform training.
