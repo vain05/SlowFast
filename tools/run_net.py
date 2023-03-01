@@ -18,9 +18,9 @@ def main():
     Main function to spawn the train and test process.
     """
     args = parse_args()
-    cfg = assert_and_infer_cfg(cfg)
     path_to_config = args.cfg_files[0]
     cfg = load_config(args, path_to_config)
+    cfg = assert_and_infer_cfg(cfg)
 
     for view in ['Dashboard', 'Rear_vew', 'Right_side_view']:
         for group_id in range(5):
