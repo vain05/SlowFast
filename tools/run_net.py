@@ -19,6 +19,7 @@ def main():
     """
     args = parse_args()
     path_to_config = args.cfg_files[0]
+    print(path_to_config)
     cfg = load_config(args, path_to_config)
     cfg = assert_and_infer_cfg(cfg)
 
