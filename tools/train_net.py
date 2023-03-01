@@ -621,7 +621,7 @@ def train(cfg):
         train_meter = TrainMeter(len(train_loader), cfg)
         val_meter = ValMeter(len(val_loader), cfg)
         test_meter = TestMeter(
-            test_loader.data.num_videos 
+            test_loader.dataset.num_videos
             // (cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS),
             cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS,
             cfg.MODEL.NUM_CLASSES,
