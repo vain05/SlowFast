@@ -23,8 +23,9 @@ def main():
     cfg = load_config(args, path_to_config)
     cfg = assert_and_infer_cfg(cfg)
 
-    for view in ['Dashboard', 'Rear_vew', 'Right_side_view']:
-        for group_id in range(5):
+    for view in ['Dashboard']:
+        for group_id in [4]:
+
             cfg.view = view
             cfg.group = 'group_' + str(group_id)
             cfg.OUTPUT_DIR = f'checkpoint_{cfg.view}_{cfg.group}'
