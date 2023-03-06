@@ -1,7 +1,7 @@
 TRAIN:
   # ENABLE: True # default True
   DATASET: kinetics
-  BATCH_SIZE: 8
+  BATCH_SIZE: 2
   EVAL_PERIOD: 10
   CHECKPOINT_PERIOD: 10
   AUTO_RESUME: False
