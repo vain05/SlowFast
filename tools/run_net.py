@@ -23,7 +23,7 @@ def main():
     cfg = load_config(args, path_to_config)
     cfg = assert_and_infer_cfg(cfg)
 
-    for view in ['Rear_view', 'Right_side_view']:
+    for view in ['Right_side_window']:
         for group_id in range(5):
 
             cfg.view = view
