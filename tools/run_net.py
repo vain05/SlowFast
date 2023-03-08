@@ -24,7 +24,7 @@ def main():
     cfg = assert_and_infer_cfg(cfg)
 
     for view in ['Right_side_window']:
-        for group_id in range(5):
+        for group_id in [4]:
 
             cfg.view = view
             cfg.group = 'group_' + str(group_id)
